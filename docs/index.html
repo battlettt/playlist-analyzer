@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Playlist Analyzer - keys, tempo, energy and harmonic flow</title>
+<meta name="description" content="Paste a playlist export and see its keys, tempos, energy curve, harmonic mixing transitions and a better track order. Runs entirely in your browser.">
+<style>
+/* Shared by the static HTML report and the docs/ demo (keep in sync:
+   tests/test_demo.py checks the demo embeds this exact stylesheet). */
+.pa-root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface-1: #fcfcfb;
+  --surface-2: #f0efec;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #6f6d68;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11, 11, 11, 0.10);
+  --series-1: #2a78d6;
+  --series-1-wash: rgba(42, 120, 214, 0.10);
+  --seq-1: #cde2fb; --seq-2: #9ec5f4; --seq-3: #6da7ec; --seq-4: #3987e5;
+  --seq-5: #256abf; --seq-6: #184f95; --seq-7: #0d366b;
+  --good: #0ca30c; --good-ink: #006300; --good-bg: rgba(12, 163, 12, 0.10);
+  --warning: #fab219; --warning-ink: #7a5300; --warning-bg: rgba(250, 178, 25, 0.16);
+  --serious: #ec835a; --serious-ink: #8f3a17; --serious-bg: rgba(236, 131, 90, 0.16);
+  --critical: #d03b3b; --critical-ink: #a42626; --critical-bg: rgba(208, 59, 59, 0.10);
+  --info-ink: #1c5cab; --info-bg: rgba(42, 120, 214, 0.10);
+  --action: #1c5cab;  /* filled buttons: white text at 6.7:1 */
+  --control-border: #6f6d68;  /* form field outlines: >= 3:1 on the page */
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--page);
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+@media (prefers-color-scheme: dark) {
+  .pa-root {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface-1: #1a1a19;
+    --surface-2: #262624;
+    --text-primary: #f0efec;
+    --text-secondary: #c3c2b7;
+    --text-muted: #9a9890;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255, 255, 255, 0.10);
+    --series-1: #3987e5;
+    --series-1-wash: rgba(57, 135, 229, 0.14);
+    --seq-1: #184f95; --seq-2: #1c5cab; --seq-3: #256abf; --seq-4: #3987e5;
+    --seq-5: #5598e7; --seq-6: #86b6ef; --seq-7: #b7d3f6;
+    --good-ink: #3fcf3f; --good-bg: rgba(12, 163, 12, 0.18);
+    --warning-ink: #fab219; --warning-bg: rgba(250, 178, 25, 0.14);
+    --serious-ink: #ec835a; --serious-bg: rgba(236, 131, 90, 0.16);
+    --critical-ink: #ef7272; --critical-bg: rgba(208, 59, 59, 0.20);
+    --info-ink: #86b6ef; --info-bg: rgba(57, 135, 229, 0.16);
+    --action: #1c5cab;
+    --control-border: #8a8880;
+  }
+}
+.pa-root * { box-sizing: border-box; }
+.pa-page { max-width: 1040px; margin: 0 auto; padding: 32px 20px 64px; }
+.pa-header { margin-bottom: 24px; }
+.pa-eyebrow { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin: 0 0 4px; }
+.pa-title { font-size: 28px; line-height: 1.2; margin: 0 0 6px; font-weight: 650; }
+.pa-sub { color: var(--text-secondary); margin: 0; }
+.pa-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin: 20px 0 8px; }
+.pa-tile { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+.pa-tile-label { font-size: 13px; color: var(--text-secondary); margin: 0; }
+.pa-tile-value { font-size: 28px; font-weight: 650; margin: 2px 0 0; line-height: 1.2; }
+.pa-tile-note { font-size: 13px; color: var(--text-muted); margin: 2px 0 0; }
+.pa-card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; margin-top: 16px; }
+.pa-card h2 { font-size: 18px; margin: 0 0 4px; font-weight: 650; }
+.pa-card h3 { font-size: 15px; margin: 18px 0 6px; font-weight: 600; }
+.pa-card-sub { color: var(--text-secondary); margin: 0 0 14px; font-size: 14px; }
+.pa-grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+@media (max-width: 760px) { .pa-grid-2 { grid-template-columns: 1fr; } }
+.pa-chart { width: 100%; height: auto; display: block; overflow: visible; }
+.pa-chart text { font-family: inherit; }
+.pa-axis-label { font-size: 11px; fill: var(--text-muted); font-variant-numeric: tabular-nums; }
+.pa-value-label { font-size: 12px; fill: var(--text-secondary); font-weight: 600; }
+.pa-grid-line { stroke: var(--grid); stroke-width: 1; }
+.pa-baseline { stroke: var(--axis); stroke-width: 1; }
+.pa-bar { fill: var(--series-1); }
+.pa-bar-hit, .pa-dot-hit { fill: transparent; }
+.pa-bar-group:hover .pa-bar, .pa-dot-group:hover .pa-dot { filter: brightness(1.15); }
+.pa-line { fill: none; stroke: var(--series-1); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.pa-area { fill: var(--series-1-wash); stroke: none; }
+.pa-dot { fill: var(--series-1); stroke: var(--surface-1); stroke-width: 2; }
+.pa-wheel-seg { stroke: var(--surface-1); stroke-width: 2; }
+.pa-wheel-seg.c0 { fill: var(--surface-2); }
+.pa-wheel-seg.c1 { fill: var(--seq-1); } .pa-wheel-seg.c2 { fill: var(--seq-2); }
+.pa-wheel-seg.c3 { fill: var(--seq-3); } .pa-wheel-seg.c4 { fill: var(--seq-4); }
+.pa-wheel-seg.c5 { fill: var(--seq-5); } .pa-wheel-seg.c6 { fill: var(--seq-6); }
+.pa-wheel-seg.c7 { fill: var(--seq-7); }
+.pa-wheel-g:hover .pa-wheel-seg { filter: brightness(1.08); }
+.pa-wheel-text { font-size: 11px; font-weight: 600; text-anchor: middle; dominant-baseline: central; pointer-events: none; fill: var(--text-secondary); }
+/* Label ink per shade step, chosen for >= 4.5:1 against that step in each mode. */
+.pa-wheel-text.t1, .pa-wheel-text.t2, .pa-wheel-text.t3, .pa-wheel-text.t4 { fill: #0b0b0b; }
+.pa-wheel-text.t5, .pa-wheel-text.t6, .pa-wheel-text.t7 { fill: #ffffff; }
+@media (prefers-color-scheme: dark) {
+  .pa-wheel-text.t1, .pa-wheel-text.t2, .pa-wheel-text.t3 { fill: #ffffff; }
+  .pa-wheel-text.t4, .pa-wheel-text.t5, .pa-wheel-text.t6, .pa-wheel-text.t7 { fill: #0b0b0b; }
+}
+.pa-wheel-center { font-size: 12px; fill: var(--text-muted); text-anchor: middle; }
+.pa-legend { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--text-secondary); margin-top: 8px; flex-wrap: wrap; }
+.pa-swatch { width: 14px; height: 10px; border-radius: 2px; display: inline-block; }
+.pa-table-wrap { overflow-x: auto; }
+.pa-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.pa-table th { text-align: left; font-size: 12px; font-weight: 600; color: var(--text-muted); padding: 8px 10px; border-bottom: 1px solid var(--axis); white-space: nowrap; }
+.pa-table td { padding: 8px 10px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+.pa-table tr:last-child td { border-bottom: none; }
+.pa-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pa-muted { color: var(--text-muted); }
+.pa-track { font-weight: 550; }
+.pa-artist { color: var(--text-secondary); font-size: 13px; }
+.pa-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.pa-badge.good { color: var(--good-ink); background: var(--good-bg); }
+.pa-badge.info { color: var(--info-ink); background: var(--info-bg); }
+.pa-badge.warning { color: var(--warning-ink); background: var(--warning-bg); }
+.pa-badge.serious { color: var(--serious-ink); background: var(--serious-bg); }
+.pa-badge.critical { color: var(--critical-ink); background: var(--critical-bg); }
+.pa-kpis { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 14px; color: var(--text-secondary); margin: 0 0 12px; padding: 0; list-style: none; }
+.pa-kpis strong { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.pa-notes { margin: 12px 0 0; padding-left: 18px; color: var(--text-secondary); font-size: 14px; }
+.pa-warn { background: var(--warning-bg); border-radius: 10px; padding: 10px 14px; color: var(--text-primary); font-size: 14px; margin-top: 16px; }
+.pa-warn ul { margin: 4px 0 0; padding-left: 18px; }
+.pa-footer { margin-top: 28px; font-size: 13px; color: var(--text-muted); }
+.pa-score-bar { height: 6px; border-radius: 3px; background: var(--surface-2); margin-top: 8px; overflow: hidden; }
+.pa-score-fill { height: 100%; background: var(--series-1); border-radius: 3px; }
+/* Demo page chrome */
+html, body { margin: 0; }
+.demo-hero { padding: 40px 0 8px; }
+.demo-hero h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; font-weight: 700; letter-spacing: -0.01em; }
+.demo-hero p { color: var(--text-secondary); max-width: 700px; margin: 0; font-size: 17px; }
+.demo-layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; margin-top: 24px; align-items: start; }
+@media (max-width: 860px) { .demo-layout { grid-template-columns: 1fr; } }
+.demo-card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; }
+.demo-card h2 { font-size: 16px; margin: 0 0 10px; font-weight: 650; }
+.demo-card p, .demo-card li { font-size: 14px; color: var(--text-secondary); }
+.demo-card ul { padding-left: 18px; margin: 6px 0 0; }
+.demo-label { display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+textarea#pa-input { width: 100%; min-height: 220px; resize: vertical; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--text-primary); background: var(--page); border: 1px solid var(--control-border); border-radius: 10px; padding: 12px; }
+textarea#pa-input:focus, .demo-field:focus, .demo-btn:focus-visible { outline: 2px solid var(--series-1); outline-offset: 2px; }
+.demo-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 12px; }
+.demo-field { font: inherit; font-size: 14px; color: var(--text-primary); background: var(--page); border: 1px solid var(--control-border); border-radius: 8px; padding: 8px 10px; min-height: 44px; }
+.demo-check { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; color: var(--text-secondary); min-height: 44px; cursor: pointer; }
+.demo-check input { width: 18px; height: 18px; accent-color: var(--action); }
+.demo-btn { font: inherit; font-size: 14px; font-weight: 600; border-radius: 8px; padding: 9px 14px; min-height: 44px; cursor: pointer; border: 1px solid var(--control-border); background: var(--surface-1); color: var(--text-primary); }
+.demo-btn:hover { background: var(--surface-2); }
+.demo-btn.primary { background: var(--action); border-color: var(--action); color: #ffffff; }
+.demo-btn.primary:hover { filter: brightness(1.12); background: var(--action); }
+.demo-btn:disabled { opacity: .5; cursor: not-allowed; }
+.demo-file { position: relative; overflow: hidden; display: inline-flex; align-items: center; }
+.demo-file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.demo-file:focus-within { outline: 2px solid var(--series-1); outline-offset: 2px; }
+.pa-status { margin: 14px 0 0; font-size: 14px; color: var(--text-secondary); white-space: pre-wrap; }
+.pa-status.ok { color: var(--good-ink); }
+.pa-status.error { color: var(--critical-ink); background: var(--critical-bg); border-radius: 8px; padding: 10px 12px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
+.demo-examples { display: grid; gap: 8px; }
+.demo-examples .demo-btn { text-align: left; width: 100%; }
+.demo-examples small { display: block; font-weight: 400; color: var(--text-muted); font-size: 12px; }
+#pa-output:empty { display: none; }
+#pa-output { margin-top: 28px; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .92em; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+a { color: var(--info-ink); }
+.skip-link { position: absolute; left: -9999px; top: 8px; }
+.skip-link:focus { left: 8px; background: var(--surface-1); color: var(--text-primary); padding: 8px 12px; border-radius: 8px; z-index: 10; }
+</style>
+</head>
+<body class="pa-root">
+<a class="skip-link" href="#pa-input">Skip to playlist input</a>
+<main class="pa-page">
+  <section class="demo-hero">
+    <p class="pa-eyebrow">playlist-analyzer &middot; browser demo</p>
+    <h1>Will this playlist flow?</h1>
+    <p>Paste an exported playlist and see which keys and tempos it lives in, how its energy rises and falls, which back-to-back tracks mix well or clash on the Camelot wheel, and an order that flows better. Everything runs in this page: no uploads, no API calls.</p>
+  </section>
+
+  <div class="demo-layout">
+    <section class="demo-card" aria-labelledby="input-heading">
+      <h2 id="input-heading">Your playlist</h2>
+      <label class="demo-label" for="pa-input">CSV with a header row (title, artist, key, bpm, energy), a JSON list of tracks, or one <code>Artist - Title | key | bpm | energy</code> per line</label>
+      <textarea id="pa-input" spellcheck="false" placeholder="title,artist,key,bpm,energy&#10;Coastline Static,Mara Vey,8A,100,4&#10;Paper Lanterns,Juniper Atlas,9A,102,4"></textarea>
+      <div class="demo-row">
+        <label class="demo-label" for="pa-format" style="margin:0">Format</label>
+        <select id="pa-format" class="demo-field">
+          <option value="auto">Detect automatically</option>
+          <option value="csv">CSV</option>
+          <option value="json">JSON</option>
+          <option value="text">Artist - Title | key | bpm | energy</option>
+        </select>
+        <label class="demo-label" for="pa-name" style="margin:0">Name</label>
+        <input id="pa-name" class="demo-field" type="text" placeholder="Pasted playlist" size="16">
+        <label class="demo-check"><input id="pa-lenient" type="checkbox"> Skip bad rows (and list them)</label>
+      </div>
+      <div class="demo-row">
+        <button id="pa-analyze" class="demo-btn primary" type="button">Analyse playlist</button>
+        <span class="demo-btn demo-file">Open file&hellip;<input id="pa-file" type="file" accept=".csv,.json,.txt,.tsv,text/plain,application/json,text/csv" aria-label="Open a playlist file"></span>
+        <button id="pa-download" class="demo-btn" type="button" disabled>Download JSON</button>
+        <button id="pa-clear" class="demo-btn" type="button">Clear</button>
+      </div>
+      <p id="pa-status" class="pa-status" role="status" aria-live="polite">Paste a playlist or load an example to begin. Tip: Ctrl/Cmd + Enter analyses.</p>
+    </section>
+
+    <aside class="demo-card" aria-labelledby="examples-heading">
+      <h2 id="examples-heading">Try an example</h2>
+      <div class="demo-examples">
+        <button id="pa-example-sunset" class="demo-btn" type="button">Sunset Drive<small>14 tracks, CSV. Compatible keys and a smooth arc.</small></button>
+        <button id="pa-example-mixed" class="demo-btn" type="button">Mixed Bag<small>14 tracks, JSON. Key clashes and big tempo jumps.</small></button>
+      </div>
+      <h2 style="margin-top:18px">How to read it</h2>
+      <ul>
+        <li><strong>Camelot wheel</strong>: keys next to each other (8A&rarr;9A) or straight across (8A&rarr;8B) share most notes and blend smoothly.</li>
+        <li><strong>Energy boost/drop</strong>: two steps round the wheel lifts or lowers the mood on purpose.</li>
+        <li><strong>Tempo</strong>: gaps over 6 BPM are tricky to beatmatch; over 10 BPM is a hard jump.</li>
+      </ul>
+      <p>The full beginner guide is in <a href="theory.md">theory.md</a>.</p>
+      <h2 style="margin-top:18px">What it can't do</h2>
+      <p>It doesn't connect to Spotify or Apple Music, detect key or tempo from audio, or play music. Every key, BPM and energy value comes from the data you paste.</p>
+    </aside>
+  </div>
+
+  <div id="pa-output" tabindex="-1" aria-label="Analysis results"></div>
+
+  <footer class="pa-footer">playlist-analyzer &middot; the same analysis is available offline as a Python CLI: <code>python3 -m playlist_analyzer examples/sunset-drive.csv</code></footer>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

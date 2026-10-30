@@ -1,0 +1,145 @@
+{
+  "name": "Mixed Bag",
+  "tracks": [
+    {
+      "title": "Static Bloom",
+      "artist": "Velvet Arcade",
+      "key": "Am",
+      "bpm": 124,
+      "energy": 6,
+      "duration_ms": 214000,
+      "genre": "Electro Pop",
+      "album": "Fictional Sampler Vol. 1"
+    },
+    {
+      "title": "Thunder in Aisle Five",
+      "artist": "The Cardboard Kings",
+      "key": "B minor",
+      "bpm": 130,
+      "energy": 8,
+      "duration_ms": 187000,
+      "genre": "Garage Rock",
+      "album": "Fictional Sampler Vol. 1"
+    },
+    {
+      "title": "Lullaby for Robots",
+      "artist": "Nina Okafor-Lind",
+      "key": "F# minor",
+      "bpm": 88,
+      "energy": 2,
+      "duration_ms": 262000,
+      "genre": "Ambient",
+      "album": "Fictional Sampler Vol. 1"
+    },
+    {
+      "title": "Disco Ferry",
+      "artist": "Glass Pelican",
+      "key": "8B",
+      "bpm": 126,
+      "energy": 9,
+      "duration_ms": 231000,
+      "genre": "Disco",
+      "album": "Fictional Sampler Vol. 1"
+    },
+    {
+      "title": "Rain on Tin",
+      "artist": "Moss & Marrow",
+      "key": "Bbm",
+      "bpm": 76,
+      "energy": 3,
+      "duration_ms": null,
+      "genre": null,
+      "album": "Fictional Sampler Vol. 1"
+    },
+    {
+      "title": "Sprint Club",
+      "artist": "Hyperlane",
+      "key": "10A",
+      "bpm": 140,
+      "energy": 9,
+      "duration_ms": 198000,
+      "genre": "Drum & Bass",
+      "album": "Fictional Sampler Vol. 1"
+    },
+    {
+      "title": "Window Seat",
+      "artist": "Moss & Marrow",
+      "key": "G",
+      "bpm": 100,
+      "energy": 4,
+      "duration_ms": 243000,
+      "genre": "Folk",
+      "album": "Fictional Sampler Vol. 1"
+    },
+    {
+      "title": "Bassline Bakery",
+      "artist": "Velvet Arcade",
+      "key": "9A",
+      "bpm": 128,
+      "energy": 7,
+      "duration_ms": 276000,
+      "genre": "House",
+      "album": "Fictional Sampler Vol. 1"
+    },
+    {
+      "title": "Copper Moon",
+      "artist": "Ana Lisboa Trio",
+      "key": "C#m",
+      "bpm": 118,
+      "energy": 5,
+      "duration_ms": 301000,
+      "genre": "Jazz",
+      "album": "Fictional Sampler Vol. 1"
+    },
+    {
+      "title": "Hyperdrive Picnic",
+      "artist": "Hyperlane",
+      "key": "6B",
+      "bpm": 132,
+      "energy": 8,
+      "duration_ms": 209000,
+      "genre": "Electro",
+      "album": "Fictional Sampler Vol. 1"
+    },
+    {
+      "title": "Slow Orbit",
+      "artist": "Nina Okafor-Lind",
+      "key": "D minor",
+      "bpm": 84,
+      "energy": 3,
+      "duration_ms": 288000,
+      "genre": "Ambient",
+      "album": "Fictional Sampler Vol. 1"
+    },
+    {
+      "title": "Fever Ladder",
+      "artist": "Glass Pelican",
+      "key": "10B",
+      "bpm": 122,
+      "energy": 8,
+      "duration_ms": 226000,
+      "genre": "Disco",
+      "album": "Fictional Sampler Vol. 1"
+    },
+    {
+      "title": "Quiet Engine",
+      "artist": "The Cardboard Kings",
+      "key": "6A",
+      "bpm": 114,
+      "energy": 5,
+      "duration_ms": 239000,
+      "genre": "Indie Rock",
+      "album": "Fictional Sampler Vol. 1"
+    },
+    {
+      "title": "Night Bus Anthem",
+      "artist": "Velvet Arcade",
+      "key": "8A",
+      "bpm": 126,
+      "energy": 7,
+      "duration_ms": 254000,
+      "genre": "House",
+      "album": "Fictional Sampler Vol. 1"
+    }
+  ]
+}

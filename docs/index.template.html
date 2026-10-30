@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Playlist Analyzer - keys, tempo, energy and harmonic flow</title>
+<meta name="description" content="Paste a playlist export and see its keys, tempos, energy curve, harmonic mixing transitions and a better track order. Runs entirely in your browser.">
+<style>
+@@STYLE@@
+/* Demo page chrome */
+html, body { margin: 0; }
+.demo-hero { padding: 40px 0 8px; }
+.demo-hero h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; font-weight: 700; letter-spacing: -0.01em; }
+.demo-hero p { color: var(--text-secondary); max-width: 700px; margin: 0; font-size: 17px; }
+.demo-layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; margin-top: 24px; align-items: start; }
+@media (max-width: 860px) { .demo-layout { grid-template-columns: 1fr; } }
+.demo-card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; }
+.demo-card h2 { font-size: 16px; margin: 0 0 10px; font-weight: 650; }
+.demo-card p, .demo-card li { font-size: 14px; color: var(--text-secondary); }
+.demo-card ul { padding-left: 18px; margin: 6px 0 0; }
+.demo-label { display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+textarea#pa-input { width: 100%; min-height: 220px; resize: vertical; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--text-primary); background: var(--page); border: 1px solid var(--control-border); border-radius: 10px; padding: 12px; }
+textarea#pa-input:focus, .demo-field:focus, .demo-btn:focus-visible { outline: 2px solid var(--series-1); outline-offset: 2px; }
+.demo-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 12px; }
+.demo-field { font: inherit; font-size: 14px; color: var(--text-primary); background: var(--page); border: 1px solid var(--control-border); border-radius: 8px; padding: 8px 10px; min-height: 44px; }
+.demo-check { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; color: var(--text-secondary); min-height: 44px; cursor: pointer; }
+.demo-check input { width: 18px; height: 18px; accent-color: var(--action); }
+.demo-btn { font: inherit; font-size: 14px; font-weight: 600; border-radius: 8px; padding: 9px 14px; min-height: 44px; cursor: pointer; border: 1px solid var(--control-border); background: var(--surface-1); color: var(--text-primary); }
+.demo-btn:hover { background: var(--surface-2); }
+.demo-btn.primary { background: var(--action); border-color: var(--action); color: #ffffff; }
+.demo-btn.primary:hover { filter: brightness(1.12); background: var(--action); }
+.demo-btn:disabled { opacity: .5; cursor: not-allowed; }
+.demo-file { position: relative; overflow: hidden; display: inline-flex; align-items: center; }
+.demo-file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.demo-file:focus-within { outline: 2px solid var(--series-1); outline-offset: 2px; }
+.pa-status { margin: 14px 0 0; font-size: 14px; color: var(--text-secondary); white-space: pre-wrap; }
+.pa-status.ok { color: var(--good-ink); }
+.pa-status.error { color: var(--critical-ink); background: var(--critical-bg); border-radius: 8px; padding: 10px 12px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
+.demo-examples { display: grid; gap: 8px; }
+.demo-examples .demo-btn { text-align: left; width: 100%; }
+.demo-examples small { display: block; font-weight: 400; color: var(--text-muted); font-size: 12px; }
+#pa-output:empty { display: none; }
+#pa-output { margin-top: 28px; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .92em; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+a { color: var(--info-ink); }
+.skip-link { position: absolute; left: -9999px; top: 8px; }
+.skip-link:focus { left: 8px; background: var(--surface-1); color: var(--text-primary); padding: 8px 12px; border-radius: 8px; z-index: 10; }
+</style>
+</head>
+<body class="pa-root">
+<a class="skip-link" href="#pa-input">Skip to playlist input</a>
+<main class="pa-page">
+  <section class="demo-hero">
+    <p class="pa-eyebrow">playlist-analyzer &middot; browser demo</p>
+    <h1>Will this playlist flow?</h1>
+    <p>Paste an exported playlist and see which keys and tempos it lives in, how its energy rises and falls, which back-to-back tracks mix well or clash on the Camelot wheel, and an order that flows better. Everything runs in this page: no uploads, no API calls.</p>
+  </section>
+
+  <div class="demo-layout">
+    <section class="demo-card" aria-labelledby="input-heading">
+      <h2 id="input-heading">Your playlist</h2>
+      <label class="demo-label" for="pa-input">CSV with a header row (title, artist, key, bpm, energy), a JSON list of tracks, or one <code>Artist - Title | key | bpm | energy</code> per line</label>
+      <textarea id="pa-input" spellcheck="false" placeholder="title,artist,key,bpm,energy&#10;Coastline Static,Mara Vey,8A,100,4&#10;Paper Lanterns,Juniper Atlas,9A,102,4"></textarea>
+      <div class="demo-row">
+        <label class="demo-label" for="pa-format" style="margin:0">Format</label>
+        <select id="pa-format" class="demo-field">
+          <option value="auto">Detect automatically</option>
+          <option value="csv">CSV</option>
+          <option value="json">JSON</option>
+          <option value="text">Artist - Title | key | bpm | energy</option>
+        </select>
+        <label class="demo-label" for="pa-name" style="margin:0">Name</label>
+        <input id="pa-name" class="demo-field" type="text" placeholder="Pasted playlist" size="16">
+        <label class="demo-check"><input id="pa-lenient" type="checkbox"> Skip bad rows (and list them)</label>
+      </div>
+      <div class="demo-row">
+        <button id="pa-analyze" class="demo-btn primary" type="button">Analyse playlist</button>
+        <span class="demo-btn demo-file">Open file&hellip;<input id="pa-file" type="file" accept=".csv,.json,.txt,.tsv,text/plain,application/json,text/csv" aria-label="Open a playlist file"></span>
+        <button id="pa-download" class="demo-btn" type="button" disabled>Download JSON</button>
+        <button id="pa-clear" class="demo-btn" type="button">Clear</button>
+      </div>
+      <p id="pa-status" class="pa-status" role="status" aria-live="polite">Paste a playlist or load an example to begin. Tip: Ctrl/Cmd + Enter analyses.</p>
+    </section>
+
+    <aside class="demo-card" aria-labelledby="examples-heading">
+      <h2 id="examples-heading">Try an example</h2>
+      <div class="demo-examples">
+        <button id="pa-example-sunset" class="demo-btn" type="button">Sunset Drive<small>14 tracks, CSV. Compatible keys and a smooth arc.</small></button>
+        <button id="pa-example-mixed" class="demo-btn" type="button">Mixed Bag<small>14 tracks, JSON. Key clashes and big tempo jumps.</small></button>
+      </div>
+      <h2 style="margin-top:18px">How to read it</h2>
+      <ul>
+        <li><strong>Camelot wheel</strong>: keys next to each other (8A&rarr;9A) or straight across (8A&rarr;8B) share most notes and blend smoothly.</li>
+        <li><strong>Energy boost/drop</strong>: two steps round the wheel lifts or lowers the mood on purpose.</li>
+        <li><strong>Tempo</strong>: gaps over 6 BPM are tricky to beatmatch; over 10 BPM is a hard jump.</li>
+      </ul>
+      <p>The full beginner guide is in <a href="theory.md">theory.md</a>.</p>
+      <h2 style="margin-top:18px">What it can't do</h2>
+      <p>It doesn't connect to Spotify or Apple Music, detect key or tempo from audio, or play music. Every key, BPM and energy value comes from the data you paste.</p>
+    </aside>
+  </div>
+
+  <div id="pa-output" tabindex="-1" aria-label="Analysis results"></div>
+
+  <footer class="pa-footer">playlist-analyzer &middot; the same analysis is available offline as a Python CLI: <code>python3 -m playlist_analyzer examples/sunset-drive.csv</code></footer>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
